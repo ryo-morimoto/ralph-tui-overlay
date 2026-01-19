@@ -46,10 +46,14 @@ nix run github:ryo-morimoto/ralph-tui-overlay
 
 When ralph-tui releases a new version:
 
-1. Update the `rev` and `hash` in `default.nix`
+1. Update `sources.json` with new version, rev, and hash
 2. Regenerate `bun.nix`:
    ```bash
-   cd /tmp && git clone --depth 1 https://github.com/subsy/ralph-tui.git
+   cd /tmp && rm -rf ralph-tui && git clone --depth 1 https://github.com/subsy/ralph-tui.git
    cd ralph-tui && nix run github:nix-community/bun2nix -- -o bun.nix
-   cp bun.nix /path/to/ralph-tui-overlay/
+   # Copy bun.nix to overlay repo
+   ```
+3. Get the new hash:
+   ```bash
+   nix build .#ralph-tui 2>&1 | grep "got:"
    ```

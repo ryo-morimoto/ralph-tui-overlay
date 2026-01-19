@@ -5,17 +5,17 @@
   fetchFromGitHub,
 }:
 let
-  version = "0.2.1";
+  sources = lib.importJSON ./sources.json;
   src = fetchFromGitHub {
     owner = "subsy";
     repo = "ralph-tui";
-    rev = "ec485ffcd82f3b8f95d2e6530ba8d6903f4963ef";
-    hash = "sha256-XdeCx6etQqHqwPXRauD19WzB4yfjKVErtCBWDaKW9YU=";
+    inherit (sources) rev hash;
   };
 in
 bun2nix.mkDerivation {
   pname = "ralph-tui";
-  inherit version src;
+  inherit (sources) version;
+  inherit src;
 
   bunDeps = bun2nix.fetchBunDeps {
     inherit src;

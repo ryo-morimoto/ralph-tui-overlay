@@ -23,33 +23,24 @@
         "aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      pkgsFor =
-        system:
-        import nixpkgs {
-          inherit system;
-          overlays = [
-            bun2nix.overlays.default
-            self.overlays.default
-          ];
-        };
     in
     {
-      overlays.default = nixpkgs.lib.composeManyExtensions [
-        bun2nix.overlays.default
-        (final: _: {
-          ralph-tui = final.callPackage ./default.nix { };
-        })
-      ];
-
       packages = forAllSystems (
         system:
         let
-          pkgs = pkgsFor system;
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ bun2nix.overlays.default ];
+          };
         in
         {
-          ralph-tui = pkgs.ralph-tui;
+          ralph-tui = pkgs.callPackage ./default.nix { };
           default = self.packages.${system}.ralph-tui;
         }
       );
+
+      overlays.default = _final: prev: {
+        ralph-tui = self.packages.${prev.system}.default;
+      };
     };
 }
