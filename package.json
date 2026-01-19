@@ -1,0 +1,10 @@
+{
+  "name": "ralph-tui-overlay",
+  "version": "0.1.0",
+  "scripts": {
+    "update": "bun run update.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0"
+  }
+}

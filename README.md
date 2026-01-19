@@ -44,16 +44,21 @@ nix run github:ryo-morimoto/ralph-tui-overlay
 
 ## Updating
 
-When ralph-tui releases a new version:
+Run the update script:
 
-1. Update `sources.json` with new version, rev, and hash
-2. Regenerate `bun.nix`:
-   ```bash
-   cd /tmp && rm -rf ralph-tui && git clone --depth 1 https://github.com/subsy/ralph-tui.git
-   cd ralph-tui && nix run github:nix-community/bun2nix -- -o bun.nix
-   # Copy bun.nix to overlay repo
-   ```
-3. Get the new hash:
-   ```bash
-   nix build .#ralph-tui 2>&1 | grep "got:"
-   ```
+```bash
+bun run update
+```
+
+This will:
+1. Fetch the latest release from GitHub
+2. Update `sources.json` with new version, rev, and hash
+3. Regenerate `bun.nix` with updated dependencies
+
+Then test and commit:
+
+```bash
+nix build .#ralph-tui
+git add -A && git commit -m "chore: Update ralph-tui to vX.Y.Z"
+git push
+```
