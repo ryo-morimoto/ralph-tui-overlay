@@ -27,13 +27,19 @@
         system:
         import nixpkgs {
           inherit system;
-          overlays = [ bun2nix.overlays.default ];
+          overlays = [
+            bun2nix.overlays.default
+            self.overlays.default
+          ];
         };
     in
     {
-      overlays.default = final: _: {
-        ralph-tui = final.callPackage ./default.nix { };
-      };
+      overlays.default = nixpkgs.lib.composeManyExtensions [
+        bun2nix.overlays.default
+        (final: _: {
+          ralph-tui = final.callPackage ./default.nix { };
+        })
+      ];
 
       packages = forAllSystems (
         system:
@@ -41,7 +47,7 @@
           pkgs = pkgsFor system;
         in
         {
-          ralph-tui = pkgs.callPackage ./default.nix { };
+          ralph-tui = pkgs.ralph-tui;
           default = self.packages.${system}.ralph-tui;
         }
       );
