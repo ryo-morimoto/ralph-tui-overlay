@@ -42,6 +42,23 @@ home.packages = [ pkgs.ralph-tui ];
 nix run github:ryo-morimoto/ralph-tui-overlay
 ```
 
+## Binary cache
+
+This flake uses [Cachix](https://cachix.org) for pre-built binaries:
+
+```bash
+cachix use ryo-morimoto
+```
+
+Or add to your NixOS config:
+
+```nix
+nix.settings = {
+  substituters = [ "https://ryo-morimoto.cachix.org" ];
+  trusted-public-keys = [ "ryo-morimoto.cachix.org-1:K/rvocxm7HuaiYYf/t5RopL/IxgHIak1vWww+AkTFWY=" ];
+};
+```
+
 ## Updating
 
 Run the update script:
@@ -61,6 +78,28 @@ Then test and commit:
 nix build .#ralph-tui
 git add -A && git commit -m "chore: Update ralph-tui to vX.Y.Z"
 git push
+```
+
+## Development
+
+Enter the development shell with formatting tools and git hooks:
+
+```bash
+cd dev
+nix develop
+```
+
+This provides:
+- `nixfmt` - Format Nix files
+- `deadnix` - Find unused code
+- `statix` - Lint for anti-patterns
+- Pre-commit hooks for automated checks
+
+Format all Nix files:
+
+```bash
+cd dev
+nix fmt ..
 ```
 
 ## Acknowledgments

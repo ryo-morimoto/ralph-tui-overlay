@@ -1,0 +1,35 @@
+name: Check for updates
+
+on:
+  schedule:
+    - cron: "0 * * * *" # Every hour
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new release
+        id: check
+        run: |
+          CURRENT=$(jq -r .version sources.json)
+          LATEST=$(curl -s https://api.github.com/repos/subsy/ralph-tui/releases/latest | jq -r .tag_name | sed 's/^v//')
+
+          echo "Current: $CURRENT"
+          echo "Latest: $LATEST"
+
+          if [ "$CURRENT" != "$LATEST" ]; then
+            echo "Update available: $CURRENT -> $LATEST"
+            echo "update_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "Already up to date"
+          fi
+
+      - name: Trigger update workflow
+        if: steps.check.outputs.update_available == 'true'
+        run: gh workflow run update.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
