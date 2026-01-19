@@ -27,11 +27,14 @@ jobs:
         id: version
         run: echo "version=$(jq -r .version sources.json)" >> $GITHUB_OUTPUT
 
-      - name: Build and push to Cachix
+      - name: Build
         run: nix build .#ralph-tui
 
       - name: Test binary
         run: ./result/bin/ralph-tui --version
+
+      - name: Push to Cachix
+        run: cachix push ryo-morimoto ./result
 
       - name: Commit and push
         run: |
