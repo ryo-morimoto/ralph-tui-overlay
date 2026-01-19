@@ -1,35 +1,36 @@
-name: Check for updates
-
+name: Check
 on:
-  schedule:
-    - cron: "0 * * * *" # Every hour
-  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
-  check:
+  fmt-check:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-nix
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Check Nix formatting
+        run: cd dev && nix fmt -- --fail-on-change
+      - name: Run git-hooks checks
+        run: cd dev && nix flake check -L
 
-      - name: Check for new release
-        id: check
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-nix
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build package
+        run: nix build -L
+      - name: Check version
         run: |
-          CURRENT=$(jq -r .version sources.json)
-          LATEST=$(curl -s https://api.github.com/repos/subsy/ralph-tui/releases/latest | jq -r .tag_name | sed 's/^v//')
-
-          echo "Current: $CURRENT"
-          echo "Latest: $LATEST"
-
-          if [ "$CURRENT" != "$LATEST" ]; then
-            echo "Update available: $CURRENT -> $LATEST"
-            echo "update_available=true" >> $GITHUB_OUTPUT
-          else
-            echo "Already up to date"
-          fi
-
-      - name: Trigger update workflow
-        if: steps.check.outputs.update_available == 'true'
-        run: gh workflow run update.yml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version=$(nix run . -- --version)
+          echo "Detected version: $version"

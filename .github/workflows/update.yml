@@ -1,6 +1,7 @@
 name: Update ralph-tui
-
 on:
+  schedule:
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -8,38 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
-      - uses: ./.github/actions/setup-nix
-        with:
-          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Run update script
-        run: bun run update.ts
-
-      - name: Get new version
-        id: version
-        run: echo "version=$(jq -r .version sources.json)" >> $GITHUB_OUTPUT
-
-      - name: Build
-        run: nix build .#ralph-tui
-
-      - name: Test binary
-        run: ./result/bin/ralph-tui --version
-
-      - name: Push to Cachix
-        run: cachix push ryo-morimoto ./result
-
-      - name: Commit and push
+      - run: bun run update.ts
+      - run: git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - run: git config user.name "github-actions[bot]"
+      - run: git add -A
+      - name: Commit with version
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "chore: Update ralph-tui to v${{ steps.version.outputs.version }}"
-          git push
+          if ! git diff --staged --quiet; then
+            VERSION=$(jq -r .version sources.json)
+            git commit -m "chore: Update ralph-tui to v$VERSION"
+          fi
+      - run: git push -u origin main
