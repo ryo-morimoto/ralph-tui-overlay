@@ -62,3 +62,8 @@ nix build .#ralph-tui
 git add -A && git commit -m "chore: Update ralph-tui to vX.Y.Z"
 git push
 ```
+
+## Acknowledgments
+
+- [@subsy](https://github.com/subsy) - [ralph-tui](https://github.com/subsy/ralph-tui)
+- [@ryoppippi](https://github.com/ryoppippi) - [claude-code-overlay](https://github.com/ryoppippi/claude-code-overlay)

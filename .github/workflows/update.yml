@@ -1,0 +1,54 @@
+name: Update ralph-tui
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Daily at midnight UTC
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: cachix/install-nix-action@v30
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Run update script
+        run: bun run update.ts
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "version=$(jq -r .version sources.json)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: Update ralph-tui to v${{ steps.changes.outputs.version }}"
+          title: "chore: Update ralph-tui to v${{ steps.changes.outputs.version }}"
+          body: |
+            Automated update of ralph-tui to v${{ steps.changes.outputs.version }}
+
+            - Updated `sources.json`
+            - Regenerated `bun.nix`
+
+            Please review and merge.
+          branch: update-ralph-tui-${{ steps.changes.outputs.version }}
+          delete-branch: true
