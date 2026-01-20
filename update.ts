@@ -4,10 +4,10 @@ import { $ } from "bun";
 
 const REPO_OWNER = "subsy";
 const REPO_NAME = "ralph-tui";
+const SCRIPT_DIR = import.meta.dir;
 
 interface GitHubRelease {
   tag_name: string;
-  target_commitish: string;
 }
 
 interface Sources {
@@ -16,29 +16,27 @@ interface Sources {
   hash: string;
 }
 
-async function getLatestRelease(): Promise<GitHubRelease> {
-  const res = await fetch(
-    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`
+async function fetchGitHubApi<T>(path: string): Promise<T> {
+  const response = await fetch(
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}${path}`
   );
-  if (!res.ok) {
-    throw new Error(`Failed to fetch latest release: ${res.statusText}`);
+  if (!response.ok) {
+    throw new Error(`GitHub API error: ${response.statusText}`);
   }
-  return res.json();
+  return response.json();
+}
+
+async function getLatestRelease(): Promise<GitHubRelease> {
+  return fetchGitHubApi("/releases/latest");
 }
 
 async function getCommitForTag(tag: string): Promise<string> {
-  const res = await fetch(
-    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/git/ref/tags/${tag}`
+  const data = await fetchGitHubApi<{ object: { type: string; url: string; sha: string } }>(
+    `/git/ref/tags/${tag}`
   );
-  if (!res.ok) {
-    throw new Error(`Failed to fetch tag ref: ${res.statusText}`);
-  }
-  const data = await res.json();
 
-  // Handle annotated tags
   if (data.object.type === "tag") {
-    const tagRes = await fetch(data.object.url);
-    const tagData = await tagRes.json();
+    const tagData = await fetch(data.object.url).then((r) => r.json());
     return tagData.object.sha;
   }
 
@@ -46,38 +44,34 @@ async function getCommitForTag(tag: string): Promise<string> {
 }
 
 async function getNixHash(rev: string): Promise<string> {
-  const result =
+  const prefetchOutput =
     await $`nix-prefetch-url --unpack https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/${rev}.tar.gz 2>&1`.text();
 
-  // Run nix hash to-sri to convert to SRI format
-  const hash = result.trim().split("\n").pop()!;
-  const sriResult = await $`nix hash convert --hash-algo sha256 ${hash}`.text();
-  return sriResult.trim();
+  const hash = prefetchOutput.trim().split("\n").pop()!;
+  const sriHash = await $`nix hash convert --hash-algo sha256 ${hash}`.text();
+  return sriHash.trim();
 }
 
-async function generateBunNix(rev: string): Promise<void> {
+async function generateBunNix(tag: string): Promise<void> {
   const tmpDir = `/tmp/ralph-tui-update-${Date.now()}`;
+  const bunNixPath = `${SCRIPT_DIR}/bun.nix`;
 
   console.log("Cloning repository...");
-  await $`git clone --depth 1 --branch ${rev} https://github.com/${REPO_OWNER}/${REPO_NAME}.git ${tmpDir}`;
+  await $`git clone --depth 1 --branch ${tag} https://github.com/${REPO_OWNER}/${REPO_NAME}.git ${tmpDir}`;
 
   console.log("Generating bun.nix...");
   await $`cd ${tmpDir} && nix run github:nix-community/bun2nix -- -o bun.nix`;
 
   console.log("Copying bun.nix...");
-  const scriptDir = import.meta.dir;
-  await $`cp ${tmpDir}/bun.nix ${scriptDir}/bun.nix`;
+  await $`cp ${tmpDir}/bun.nix ${bunNixPath}`;
 
-  // Fix unused imports in bun.nix for deadnix
-  const bunNixPath = `${scriptDir}/bun.nix`;
-  let bunNixContent = await Bun.file(bunNixPath).text();
-  bunNixContent = bunNixContent.replace(
+  const bunNixContent = await Bun.file(bunNixPath).text();
+  const fixedContent = bunNixContent.replace(
     /\{\s*copyPathToStore,\s*fetchFromGitHub,\s*fetchgit,\s*fetchurl,/,
     "{\n  fetchurl,"
   );
-  await Bun.write(bunNixPath, bunNixContent);
+  await Bun.write(bunNixPath, fixedContent);
 
-  // Format with nixfmt
   await $`nixfmt ${bunNixPath}`.nothrow();
 
   console.log("Cleaning up...");
@@ -85,20 +79,17 @@ async function generateBunNix(rev: string): Promise<void> {
 }
 
 async function readCurrentSources(): Promise<Sources> {
-  const scriptDir = import.meta.dir;
-  const file = Bun.file(`${scriptDir}/sources.json`);
-  return file.json();
+  return Bun.file(`${SCRIPT_DIR}/sources.json`).json();
 }
 
 async function writeSources(sources: Sources): Promise<void> {
-  const scriptDir = import.meta.dir;
   await Bun.write(
-    `${scriptDir}/sources.json`,
+    `${SCRIPT_DIR}/sources.json`,
     JSON.stringify(sources, null, 2) + "\n"
   );
 }
 
-async function main() {
+async function main(): Promise<void> {
   console.log("Fetching latest release...");
   const release = await getLatestRelease();
   const version = release.tag_name.replace(/^v/, "");
@@ -131,7 +122,7 @@ async function main() {
   console.log("2. Commit and push changes");
 }
 
-main().catch((err) => {
+main().catch(function (err) {
   console.error("Error:", err);
   process.exit(1);
 });
