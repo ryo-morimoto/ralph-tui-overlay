@@ -17,8 +17,16 @@ interface Sources {
 }
 
 async function fetchGitHubApi<T>(path: string): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+  };
+  const token = process.env.GITHUB_TOKEN;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   const response = await fetch(
-    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}${path}`
+    `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}${path}`,
+    { headers }
   );
   if (!response.ok) {
     throw new Error(`GitHub API error: ${response.statusText}`);
@@ -36,7 +44,14 @@ async function getCommitForTag(tag: string): Promise<string> {
   );
 
   if (data.object.type === "tag") {
-    const tagData = await fetch(data.object.url).then((r) => r.json());
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+    };
+    const token = process.env.GITHUB_TOKEN;
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const tagData = await fetch(data.object.url, { headers }).then((r) => r.json());
     return tagData.object.sha;
   }
 
